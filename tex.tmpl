@@ -1,0 +1,19 @@
+\documentclass[12pt]{article}
+\usepackage{fullpage}
+\renewcommand{\rmdefault}{baskerville}
+\title{$title}
+
+\begin{document}
+
+#if len($date) > 0
+\date{$date}
+\maketitle
+#else
+\begin{center}
+\Large $title
+\end{center}
+#end if
+
+$body
+
+\end{document}
