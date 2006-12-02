@@ -33,6 +33,7 @@ def make_tfm(font, ttfsuffix, slant):
     if slant: sflag = '-s .167'
     ttf2tfm = ' '.join((
         'ttf2tfm', ttf, '-q -T T1-WGL4.enc', sflag, '-v', vpl, rtfm))
+    print ttf2tfm
     p = os.popen(ttf2tfm)
     ttfonts = ensure_open(TTFONTS_MAP_PATH, 'a')
     ttfonts.write(p.read())
@@ -42,16 +43,17 @@ def make_tfm(font, ttfsuffix, slant):
     os.remove(vpl)
     os.renames(vf, os.path.join(VF_PATH, font, vf))
     os.renames(tfm, os.path.join(TFM_PATH, font, tfm))
+    print rtfm
     os.renames(rtfm, os.path.join(TFM_PATH, font, rtfm))
 
-    ttfcopy = ensure_open(os.path.join(TTF_PATH, ttf), 'w')
-    ttforig = open(ttf)
+    ttfcopy = ensure_open(os.path.join(TTF_PATH, ttf), 'wb')
+    ttforig = open(ttf, 'rb')
     ttfcopy.write(ttforig.read())
     ttfcopy.close()
     ttforig.close()
 
     f = ensure_open(PDFTEX_MAP_PATH, 'a')
-    f.write('rttf-' + font + ' <' + ttf + ' <T1-WGL4.enc\n')
+    f.write('rttf-' + font + suffix + ' <' + ttf + ' <T1-WGL4.enc\n')
     f.close()
 
 def create_fd_file(font, variants, subs):
