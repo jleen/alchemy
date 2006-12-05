@@ -204,7 +204,7 @@ def main():
 
     opts, args = getopt.getopt(
         sys.argv[1:],
-        'pwxv', ['plain', 'html', 'tex', 'version'])
+        'v', ['version'])
 
     transformer_type = "plain"
 
