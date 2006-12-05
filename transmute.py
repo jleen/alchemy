@@ -4,8 +4,6 @@ import re
 import sys
 import xml
 
-from Cheetah.Template import Template
-
 lines = sys.stdin.readlines()
 debug = False
 
@@ -75,8 +73,8 @@ class Formatter:
         subfmt.fill(lines)
         subfmt.end()
 
-        t = Template(templates[cmd], searchList = [subfmt.get_fields()])
-        self.fields["body"] += str(t)
+        sub_fields = subfmt.get_fields()
+        self.fields["body"] += fill_template(templates[cmd], sub_fields)
 
     def include(self, file):
         if debug: print 'Including ', file
@@ -181,6 +179,11 @@ class TeX(Formatter):
     ]
 
 
+def fill_template(template, fields):
+    field_alternator = '|'.join([re.escape(key) for key in fields.keys()])
+    filler = re.compile('\$(' + field_alternator + ')')
+    return filler.sub(lambda match: fields[match.group(1)], template)
+
 opts, args = getopt.getopt(
     sys.argv[1:],
     'pwxv', ['plain', 'html', 'tex', 'version'])
@@ -231,5 +234,4 @@ formatter.begin()
 formatter.fill(lines)
 formatter.end()
 
-t = Template(templates['main'], searchList = [formatter.get_fields()])
-print str(t)
+print fill_template(templates['main'], formatter.get_fields())
