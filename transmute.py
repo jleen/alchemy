@@ -44,6 +44,9 @@ def runtime_file(name):
 class Formatter:
     fields = {}
 
+    def __init__(self, transformer):
+        self.transformer = transformer
+
     def begin(self):
         if debug: print "Beginning", self.debug_name
         self.fields = {}
@@ -65,10 +68,10 @@ class Formatter:
         self.macro("section", arg)
 
     def macro(self, cmd, arg, lines = []):
-        subfmt = self.__class__()
+        subfmt = self.__class__(self.transformer)
         if debug: subfmt.debug_name = "inner"
         subfmt.begin()
-        if arg: arg = self.transform(arg)
+        if arg: arg = self.transformer.transform(arg)
         subfmt.fields["arg"] = arg
         subfmt.fill(lines)
         subfmt.end()
@@ -85,18 +88,13 @@ class Formatter:
 
     def directive(self, cmd, arg):
         if debug: print "Directive", cmd, arg
-        self.fields[cmd] = self.transform(arg)
+        self.fields[cmd] = self.transformer.transform(arg)
 
     def get_fields(self):
         return self.fields
 
-    def transform(self, str):
-        for xf in self.transforms:
-            str = re.sub(xf[0], xf[1], str)
-        return str
-
     def line(self, str):
-        self.fields["body"] += self.transform(str) + '\n\n'
+        self.fields["body"] += self.transformer.transform_line(str)
 
     def fill(self, lines):
         cur_line = ''
@@ -135,19 +133,32 @@ class Formatter:
                 cur_line = ''
         if not fresh_line: self.line(cur_line)
 
-class Plain(Formatter):
+
+def get_transformer(which_one):
+    if which_one == "plain": return Plain()
+    if which_one == "html": return Html()
+    if which_one == "tex": return TeX()
+
+class Transformer:
+    def transform(self, str):
+        for xf in self.transforms:
+            str = re.sub(xf[0], xf[1], str)
+        return str
+
+    def transform_line(self, str):
+        return self.transform(str) + '\n\n'
+
+
+class Plain(Transformer):
     transforms = [
         [ r' +', ' ' ],
         [ r'`',  "'" ]
     ]
 
-class Html(Formatter):
-    def title(self, str):
-        self.fields["body"] += '<title>' + self.transform(str) + '</title>\n'
-        self.fields["body"] += '<h1>' + self.transform(str) + '</h1>\n'
 
-    def line(self, str):
-        self.fields["body"] += '<p>' + self.transform(str) + '</p>\n'
+class Html(Transformer):
+    def transform_line(self, str):
+        return '<p>' + self.transform(str) + '</p>\n'
 
     transforms = [
         [ r' +',  ' ' ],
@@ -162,7 +173,8 @@ class Html(Formatter):
         [ ITALIC, '<i>\\1</i>' ]
     ]
 
-class TeX(Formatter):
+
+class TeX(Transformer):
     transforms = [
         [r' +',  ' '],
         [r'\\', '\\\\\\\\'], 
@@ -194,29 +206,19 @@ def main():
         sys.argv[1:],
         'pwxv', ['plain', 'html', 'tex', 'version'])
 
-    formatter = None
+    transformer_type = "plain"
 
     for o, a in opts:
-        if o in ('-p', '--plain'):
-            formatter = Plain()
-        if o in ('-w', '--html'):
-            formatter = Html()
-        if o in ('-x', '--tex'):
-            formatter = TeX()
         if o in ('-v', '--verbose'):
             debug = True
 
-    if formatter == None:
-        formatter = Plain()
-
-    if debug: formatter.debug_name = "outer"
     template = None
     if len(args) > 0:
         template = args[0]
+        if not os.path.exists(template):
+            template = runtime_file(template)
     else:
-        if isinstance(formatter, Plain): template = runtime_file("plain.tmpl")
-        elif isinstance(formatter, Html): template = runtime_file("html.tmpl")
-        elif isinstance(formatter, TeX): template = runtime_file("tex.tmpl")
+        template = runtime_file("plain.tmpl")
 
     for cmd in escapes:
         cmd[0] = re.compile(cmd[0])
@@ -230,12 +232,17 @@ def main():
     current_template = 'main'
     for line in template_lines:
         line = line.strip()
-        if line.startswith('=='):
+        if line.startswith('===default '):
+            transformer_type = line[11:]
+
+        elif line.startswith('=='):
             current_template = line[2:]
             templates[current_template] = ''
         else:
             templates[current_template] += line + '\n'
 
+    formatter = Formatter(get_transformer(transformer_type))
+    if debug: formatter.debug_name = "outer"
     formatter.begin()
     formatter.fill(lines)
     formatter.end()
