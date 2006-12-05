@@ -4,8 +4,8 @@ import re
 import sys
 import xml
 
-lines = sys.stdin.readlines()
 debug = False
+templates = None
 
 ITALIC = r"/([^/]+)/"
 
@@ -184,54 +184,62 @@ def fill_template(template, fields):
     filler = re.compile('\$(' + field_alternator + ')')
     return filler.sub(lambda match: fields[match.group(1)], template)
 
-opts, args = getopt.getopt(
-    sys.argv[1:],
-    'pwxv', ['plain', 'html', 'tex', 'version'])
+def main():
+    global debug
+    global templates
 
-formatter = None
+    lines = sys.stdin.readlines()
 
-for o, a in opts:
-    if o in ('-p', '--plain'):
+    opts, args = getopt.getopt(
+        sys.argv[1:],
+        'pwxv', ['plain', 'html', 'tex', 'version'])
+
+    formatter = None
+
+    for o, a in opts:
+        if o in ('-p', '--plain'):
+            formatter = Plain()
+        if o in ('-w', '--html'):
+            formatter = Html()
+        if o in ('-x', '--tex'):
+            formatter = TeX()
+        if o in ('-v', '--verbose'):
+            debug = True
+
+    if formatter == None:
         formatter = Plain()
-    if o in ('-w', '--html'):
-        formatter = Html()
-    if o in ('-x', '--tex'):
-        formatter = TeX()
-    if o in ('-v', '--verbose'):
-        debug = True
 
-if formatter == None:
-    formatter = Plain()
-
-if debug: formatter.debug_name = "outer"
-template = None
-if len(args) > 0:
-    template = args[0]
-else:
-    if isinstance(formatter, Plain): template = runtime_file("plain.tmpl")
-    elif isinstance(formatter, Html): template = runtime_file("html.tmpl")
-    elif isinstance(formatter, TeX): template = runtime_file("tex.tmpl")
-
-for cmd in escapes:
-    cmd[0] = re.compile(cmd[0])
-    if cmd[1]: cmd[1] = re.compile(cmd[1])
-
-template_fh = open(template, 'r')
-template_lines = template_fh.readlines()
-template_fh.close()
-
-templates = { 'main': '' }
-current_template = 'main'
-for line in template_lines:
-    line = line.strip()
-    if line.startswith('=='):
-        current_template = line[2:]
-        templates[current_template] = ''
+    if debug: formatter.debug_name = "outer"
+    template = None
+    if len(args) > 0:
+        template = args[0]
     else:
-        templates[current_template] += line + '\n'
+        if isinstance(formatter, Plain): template = runtime_file("plain.tmpl")
+        elif isinstance(formatter, Html): template = runtime_file("html.tmpl")
+        elif isinstance(formatter, TeX): template = runtime_file("tex.tmpl")
 
-formatter.begin()
-formatter.fill(lines)
-formatter.end()
+    for cmd in escapes:
+        cmd[0] = re.compile(cmd[0])
+        if cmd[1]: cmd[1] = re.compile(cmd[1])
 
-print fill_template(templates['main'], formatter.get_fields())
+    template_fh = open(template, 'r')
+    template_lines = template_fh.readlines()
+    template_fh.close()
+
+    templates = { 'main': '' }
+    current_template = 'main'
+    for line in template_lines:
+        line = line.strip()
+        if line.startswith('=='):
+            current_template = line[2:]
+            templates[current_template] = ''
+        else:
+            templates[current_template] += line + '\n'
+
+    formatter.begin()
+    formatter.fill(lines)
+    formatter.end()
+
+    print fill_template(templates['main'], formatter.get_fields())
+
+main()
