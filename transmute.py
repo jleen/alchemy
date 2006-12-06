@@ -44,6 +44,8 @@ def runtime_file(name):
 class Formatter:
     fields = {}
 
+    line_mode = False
+
     def __init__(self, transformer):
         self.transformer = transformer
 
@@ -120,6 +122,8 @@ class Formatter:
                             cmd_impl(lines = inner_lines, *found.groups())
                         else:
                             cmd_impl(*found.groups())
+            elif self.line_mode:
+                self.line(line)
             elif line != '':
                 if not fresh_line:
                     cur_line += ' '
@@ -147,6 +151,10 @@ class Transformer:
 
     def transform_line(self, str):
         return self.transform(str) + '\n\n'
+
+
+class Dumb(Transformer):
+    transforms = []
 
 
 class Plain(Transformer):
@@ -202,6 +210,10 @@ def main():
 
     lines = sys.stdin.readlines()
 
+    template = None
+    if lines[0].startswith('====template '):
+        template = lines[0][13:].strip() + '.tmpl'
+
     opts, args = getopt.getopt(
         sys.argv[1:],
         'v', ['version'])
@@ -212,12 +224,13 @@ def main():
         if o in ('-v', '--verbose'):
             debug = True
 
-    template = None
     if len(args) > 0:
         template = args[0]
-        if not os.path.exists(template):
-            template = runtime_file(template)
-    else:
+
+    if template and not os.path.exists(template):
+        template = runtime_file(template)
+
+    if not template or not os.path.exists(template):
         template = runtime_file("plain.tmpl")
 
     for cmd in escapes:
