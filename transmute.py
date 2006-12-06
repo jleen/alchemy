@@ -44,10 +44,9 @@ def runtime_file(name):
 class Formatter:
     fields = {}
 
-    line_mode = False
-
-    def __init__(self, transformer):
+    def __init__(self, transformer, line_mode):
         self.transformer = transformer
+        self.line_mode = line_mode
 
     def begin(self):
         if debug: print "Beginning", self.debug_name
@@ -70,7 +69,8 @@ class Formatter:
         self.macro("section", arg)
 
     def macro(self, cmd, arg, lines = []):
-        subfmt = self.__class__(self.transformer)
+        line_macro = templates[cmd]['line_macro']
+        subfmt = self.__class__(self.transformer, line_macro)
         if debug: subfmt.debug_name = "inner"
         subfmt.begin()
         if arg: arg = self.transformer.transform(arg)
@@ -79,7 +79,7 @@ class Formatter:
         subfmt.end()
 
         sub_fields = subfmt.get_fields()
-        self.fields["body"] += fill_template(templates[cmd], sub_fields)
+        self.fields["body"] += fill_template(templates[cmd]['text'], sub_fields)
 
     def include(self, file):
         if debug: print 'Including ', file
@@ -96,7 +96,12 @@ class Formatter:
         return self.fields
 
     def line(self, str):
-        self.fields["body"] += self.transformer.transform_line(str)
+        if self.line_mode:
+            if debug: print 'Processing line with macro', self.line_mode
+            self.macro(self.line_mode, str)
+        else:
+            if debug: print 'Processing paragraph with transformer'
+            self.fields["body"] += self.transformer.transform_line(str)
 
     def fill(self, lines):
         cur_line = ''
@@ -243,6 +248,8 @@ def main():
 
     templates = { 'main': '' }
     current_template = 'main'
+    lines_re = re.compile(
+        '^(?P<name>[A-Za-z]+) lines (?P<line_macro>[A-Za-z]+)$')
     for line in template_lines:
         line = line.strip()
         if line.startswith('===default '):
@@ -250,16 +257,26 @@ def main():
 
         elif line.startswith('=='):
             current_template = line[2:]
-            templates[current_template] = ''
-        else:
-            templates[current_template] += line + '\n'
+            line_macro = None
+            found = lines_re.match(current_template)
+            if found:
+                current_template = found.group('name')
+                line_macro = found.group('line_macro')
+            if debug: print 'Defining macro', current_template
+            templates[current_template] = {}
+            templates[current_template]['text'] = ''
+            templates[current_template]['line_macro'] = line_macro
 
-    formatter = Formatter(get_transformer(transformer_type))
+        else:
+            templates[current_template]['text'] += line + '\n'
+
+    line_mode = templates['main']['line_macro']
+    formatter = Formatter(get_transformer(transformer_type), line_mode)
     if debug: formatter.debug_name = "outer"
     formatter.begin()
     formatter.fill(lines)
     formatter.end()
 
-    print fill_template(templates['main'], formatter.get_fields())
+    print fill_template(templates['main']['text'], formatter.get_fields())
 
 main()
