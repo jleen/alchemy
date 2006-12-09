@@ -182,8 +182,8 @@ class Html(Transformer):
         [ r"''",  '&rdquo;' ],
         [ r'`',   '&lsquo;' ],
         [ r"'",   '&rsquo;' ],
-        [ r'--',  '&endash; ' ],
-        [ r'\.\.\.',  '&hellip; ' ],
+        [ r'--',  '&endash;' ],
+        [ r'\.\.\.',  '&hellip;' ],
         [ ITALIC, '<i>\\1</i>' ]
     ]
 
